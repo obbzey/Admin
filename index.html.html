@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Campus Shuttle Fleet Console</title>
+  <style>
+/* Theme tokens */
+:root{--bg:#EEF1F4;--card:#fff;--ink:#14202B;--mute:#5E6B78;--line:#D8DEE4;--ok:#0B8A7A;--warn:#B7791F;--bad:#C53030;--full:#5B5BD6}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0E1419;--card:#161E26;--ink:#E6EDF3;--mute:#8FA0B0;--line:#26323D;--ok:#2DD4BF;--warn:#F2B84B;--bad:#FF7A7A;--full:#9A9AFF}}
+:root[data-theme="dark"]{--bg:#0E1419;--card:#161E26;--ink:#E6EDF3;--mute:#8FA0B0;--line:#26323D;--ok:#2DD4BF;--warn:#F2B84B;--bad:#FF7A7A;--full:#9A9AFF}
+
+/* Base */
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+h1{font-size:20px;font-weight:800;margin:0}
+h2{font-size:15px;font-weight:600;margin:0 0 8px}
+p{margin:4px 0}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--ok);outline-offset:2px}
+.mute{color:var(--mute)}.sm{font-size:13px}.xs{font-size:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px}
+.pad{padding:14px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.between{justify-content:space-between}
+.stack>*+*{margin-top:12px}
+
+/* Layout: sidebar, main, right rail */
+.app{display:flex;height:100%}
+.side{width:220px;flex-shrink:0;border-radius:0;border-width:0 1px 0 0;padding:8px;display:flex;flex-direction:column;gap:4px;transition:width .2s}
+.side.collapsed{width:64px}
+.nav{display:flex;align-items:center;gap:12px;padding:9px;border:0;border-radius:8px;background:transparent;font-size:14px;font-weight:600;text-align:left;position:relative}
+.nav.on{background:var(--ok);color:#06201C}
+.dot{position:absolute;right:8px;top:8px;width:10px;height:10px;border-radius:50%;background:var(--bad)}
+.main{flex:1;overflow:auto;min-width:0}
+.top{display:flex;align-items:center;justify-content:space-between;padding:16px}
+.page{padding:0 16px 32px}
+.rail{width:288px;flex-shrink:0;padding:16px 16px 16px 0;overflow:auto}
+.rail .card{margin-bottom:12px}
+
+/* Grids */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.kpi{font-size:26px;font-weight:800}
+.two{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+.buslist{max-height:540px;overflow:auto}
+.buslist .card{margin-bottom:8px}
+.routes-grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+
+/* Components */
+.badge{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,var(--c) 16%,transparent);color:var(--c);white-space:nowrap}
+.btn{padding:8px 14px;border-radius:8px;font-weight:600;font-size:14px;border:1px solid var(--line);background:var(--card)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.pri{background:var(--ok);color:#06201C;border-color:transparent}
+.dng{background:var(--bad);color:#fff;border-color:transparent}
+.seg{display:inline-flex;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.seg button{padding:6px 12px;font-size:13px;font-weight:600;border:0;background:transparent}
+.seg .on{background:var(--ok);color:#06201C}
+.check{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;padding:8px 12px}
+.check input{width:18px;height:18px}
+.accent{border-color:var(--ok)}
+.bar{height:8px;border-radius:99px;background:var(--line);margin-top:8px}
+.bar>i{display:block;height:100%;border-radius:99px}
+.map{width:100%;border-radius:8px;background:color-mix(in srgb,var(--line) 40%,var(--card))}
+.chart{display:flex;align-items:flex-end;gap:8px;height:210px;margin-top:16px}
+.chart>div{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center}
+.chart i{display:block;width:100%;border-radius:4px 4px 0 0}
+.heat{overflow-x:auto}
+.heat>div{min-width:420px}
+.hrow{display:flex;gap:4px;margin-bottom:4px;align-items:center}
+.hrow b{width:112px;font-size:13px;font-weight:400}
+.hrow span{flex:1;height:32px;border-radius:4px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:10px}
+.table{width:100%;border-collapse:collapse;font-size:14px;min-width:560px}
+.table th{text-align:left;color:var(--mute);padding:4px 0}
+.table td{padding:9px 0;border-top:1px solid var(--line)}
+.scroll-x{overflow-x:auto}
+input[type=time]{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 8px;display:block}
+.num{display:inline-flex;align-items:center;gap:8px}
+.num b{width:32px;text-align:center}
+#toast{position:fixed;right:16px;bottom:16px;z-index:20}
+.toast{padding:12px 16px;font-weight:600;border-left-width:6px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;z-index:30}
+.dialog{max-width:380px;width:100%;padding:24px;text-align:center;border:3px solid var(--bad)}
+.pulse{animation:p 1.2s infinite}
+@keyframes p{50%{opacity:.35}}
+@media(prefers-reduced-motion:reduce){.pulse{animation:none}}
+
+/* Responsive */
+@media(max-width:1279px){.rail{display:none}}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.two,.routes-grid{grid-template-columns:1fr}}
+
+</style>
+</head>
+<body>
+  <div class="app">
+    <aside id="side" class="side card"></aside>
+    <main class="main">
+      <header class="top">
+        <h1 id="title"></h1>
+        <button class="btn" data-act="theme" aria-label="Toggle light or dark theme">Theme</button>
+      </header>
+      <div id="page" class="page"></div>
+    </main>
+    <aside id="rail" class="rail"></aside>
+  </div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <div id="modal"></div>
+  <script>
+// Campus Shuttle Fleet Management System: Admin Dashboard (plain HTML/CSS/JS prototype)
+const CAP = 30;
+const $ = id => document.getElementById(id);
+const ROUTES = {
+  A: { c: "#0B8A7A", p: [[40,300],[160,220],[300,200],[440,110],[560,60]] },
+  B: { c: "#B7791F", p: [[40,80],[180,120],[300,200],[420,270],[560,310]] },
+  C: { c: "#5B5BD6", p: [[60,190],[200,180],[300,200],[400,160],[540,190]] },
+};
+const DEMAND = { A:[18,40,96,112,52,30,22], B:[12,28,64,78,40,26,20], C:[8,18,44,52,30,18,14] };
+const HOURS = [6,7,8,9,10,11,12];
+const DF = { Today: 1, Yesterday: .92, "7-day avg": .84 };
+const STOPS = [["Main Gate",1],["Library",.8],["Hostel Block",.9],["Engineering",.7],["Sports Complex",.35]];
+const SC = { "On Time":"var(--ok)", Delayed:"var(--warn)", Full:"var(--full)", Breakdown:"var(--bad)" };
+const NAV = [["fleet","pin","Fleet Overview"],["an","bar","Route Analytics"],["rt","route","Route Management"],["ai","spark","AI Forecasting"],["sos","warn","SOS Alerts"],["bk","receipt","Booking & Payments"],["set","set","Settings"]];
+const DRIVER = id => ({ "01":"Aisha K.","02":"Omar S.","03":"Nadia H.","04":"Daniel R.","05":"Mei L.","06":"Farid A.","07":"Siti Z.","08":"Ben T." }[id] || "Relief driver");
+const BOOKINGS = [["S2024101","A","03","08:05","Visa","Paid"],["S2024117","A","01","08:12","Touch 'n Go","Paid"],["S2024142","B","04","08:20","Visa","Pending"],["S2024158","C","06","08:31","Touch 'n Go","Paid"],["S2024163","A","02","08:44","Visa","Failed"],["S2024175","B","05","09:02","Touch 'n Go","Paid"]];
+const P = {menu:"M4 6h16M4 12h16M4 18h16",pin:"M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0116 0zM12 10h.01",bar:"M12 20V10M18 20V4M6 20v-4",spark:"M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z",warn:"M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0zM12 9v4M12 17h.01",set:"M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",route:"M9 19h8.5a3.5 3.5 0 000-7h-11a3.5 3.5 0 010-7H15M3 19a3 3 0 106 0 3 3 0 10-6 0M15 5a3 3 0 106 0 3 3 0 10-6 0",receipt:"M4 2v20l3-2 3 2 3-2 3 2 3-2V2zM8 7h8M8 11h8M8 15h5"};
+const ic = (n, s = 18) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${P[n]}"/></svg>`;
+
+const mk = (id, r, t, load, delay) => ({ id, r, t, load, delay, sos: false });
+const S = {
+  dark: matchMedia("(prefers-color-scheme: dark)").matches, col: false, page: "fleet", sound: true,
+  buses: [mk("01","A",.1,24,0),mk("02","A",.55,29,2),mk("03","A",.8,12,7),mk("04","B",.2,18,0),mk("05","B",.6,30,1),mk("06","C",.3,9,0),mk("07","C",.75,21,6),mk("08","B",.9,15,0)],
+  feed: [{ id: 1, bus: "05", kind: "Delay", route: "B", driver: "Mei L.", gps: "3.12050, 101.65300", time: "07:42", st: "Dispatched" }],
+  modal: null, date: "Today", route: "All", fc: "idle", auto: false,
+  draft: { route: "A", start: "08:00", end: "09:00", extra: 1 }, step: 0, log: [],
+  filter: "All", links: [["S2024101","Visa",true],["S2024117","Touch 'n Go",true],["S2024142","Visa",true]],
+};
+
+const statusOf = b => b.sos ? "Breakdown" : b.delay >= 5 ? "Delayed" : b.load >= 28 ? "Full" : "On Time";
+const badge = s => `<span class="badge" style="--c:${SC[s]}">${s}</span>`;
+const posOn = (p, t) => { const n = p.length - 1, s = t * n, i = Math.min(Math.floor(s), n - 1), f = s - i; return { x: p[i][0] + (p[i+1][0] - p[i][0]) * f, y: p[i][1] + (p[i+1][1] - p[i][1]) * f }; };
+const coords = b => { const { x, y } = posOn(ROUTES[b.r].p, b.t); return [(3.125 - y * .00008).toFixed(5), (101.65 + x * .00009).toFixed(5)]; };
+const openCount = () => S.feed.filter(f => f.st === "Open" || f.st === "Acknowledged").length;
+const suggest = () => ["A","B","C"].flatMap(r => { const n = S.buses.filter(b => b.r === r).length, d = DEMAND[r][2], add = Math.ceil(d / CAP) - n; return add > 0 ? [{ r, add, d, cap: n * CAP }] : []; });
+const seg = (k, cur, opts, label) => `<div class="seg" role="group" aria-label="${label}">${opts.map(o => `<button class="${o === cur ? "on" : ""}" aria-pressed="${o === cur}" data-act="seg" data-k="${k}" data-v="${o}">${o}</button>`).join("")}</div>`;
+const autoToggle = () => `<label class="card check"><input type="checkbox" data-k="auto" ${S.auto ? "checked" : ""}>Dynamic route optimization (auto-suggest from congestion heatmap)</label>`;
+const suggBox = () => { const g = suggest(); return `<div class="card pad accent stack"><b class="sm">Auto-suggestions from live congestion</b>${g.length ? g.map(s => `<div class="row between sm"><span>Route ${s.r}: demand ${s.d} vs capacity ${s.cap} at 8 AM. Add ${s.add} bus.</span><button class="btn pri" data-act="apply" data-r="${s.r}" data-add="${s.add}">Apply to editor</button></div>`).join("") : '<p class="mute sm">No route is over capacity at 8 AM.</p>'}</div>`; };
+
+function beep() { // audible admin alert for prototype
+  try { const a = new (window.AudioContext || window.webkitAudioContext)(); [0,.3,.6].forEach(d => { const o = a.createOscillator(), g = a.createGain(); o.frequency.value = 880; g.gain.value = .15; o.connect(g); g.connect(a.destination); o.start(a.currentTime + d); o.stop(a.currentTime + d + .15); }); } catch (e) {}
+}
+let tt; function say(m, c = "var(--ok)") { $("toast").innerHTML = `<div class="card toast" style="border-left-color:${c}">${m}</div>`; clearTimeout(tt); tt = setTimeout(() => $("toast").innerHTML = "", 4500); }
+const theme = () => document.documentElement.dataset.theme = S.dark ? "dark" : "light";
+
+/* ---------- Pages ---------- */
+function fleet() {
+  const avg = Math.round(S.buses.reduce((a, b) => a + b.load, 0) / S.buses.length / CAP * 100);
+  const k = [["Active buses", S.buses.length], ["Avg load", avg + "%"], ["Delayed", S.buses.filter(b => statusOf(b) === "Delayed").length], ["Open SOS", openCount()]];
+  const routes = Object.entries(ROUTES).map(([, r]) => `<polyline points="${r.p.map(q => q.join(",")).join(" ")}" fill="none" stroke="${r.c}" stroke-width="5" stroke-linecap="round" opacity=".55"/>${r.p.map(q => `<circle cx="${q[0]}" cy="${q[1]}" r="5" fill="var(--card)" stroke="${r.c}" stroke-width="2"/>`).join("")}`).join("");
+  const dots = S.buses.map(b => { const { x, y } = posOn(ROUTES[b.r].p, b.t); return `<g transform="translate(${x},${y})" class="${b.sos ? "pulse" : ""}"><circle r="15" fill="${SC[statusOf(b)]}"/><text text-anchor="middle" dy="5" font-size="13" font-weight="800" fill="#fff">${b.id}</text></g>`; }).join("");
+  const list = S.buses.map(b => { const s = statusOf(b), [la, lo] = coords(b); return `<div class="card pad"><div class="row between"><b>Bus #${b.id} <span class="mute sm" style="font-weight:400">Route ${b.r}</span></b>${badge(s)}</div><div class="bar" role="progressbar" aria-valuenow="${b.load}" aria-valuemax="${CAP}"><i style="width:${b.load / CAP * 100}%;background:${SC[s]}"></i></div><div class="row between mute xs" style="margin-top:4px"><span>${b.load}/${CAP} passengers</span><span>${la}, ${lo}</span></div></div>`; }).join("");
+  return `<div class="kpis">${k.map(([a, b]) => `<div class="card pad"><div class="mute sm">${a}</div><div class="kpi">${b}</div></div>`).join("")}</div>
+  <div class="two"><div class="card pad"><h2>Live Fleet Map</h2><svg class="map" viewBox="0 0 600 360" role="img" aria-label="Map of shuttle routes and buses">${routes}${dots}</svg></div><div class="buslist">${list}</div></div>`;
+}
+
+const VOL = { A:[352,361,348,375,389,366,370], B:[236,244,230,252,261,248,248], C:[138,142,135,150,156,140,144] };
+function volumeChart() {
+  const ser = [0,1,2,3,4,5,6].map(i => Math.round((S.route === "All" ? VOL.A[i] + VOL.B[i] + VOL.C[i] : VOL[S.route][i]))), mx = Math.max(...ser) * 1.15;
+  const lab = ser.map((_, i) => i === 6 ? "Today" : new Date(Date.now() - (6 - i) * 864e5).toLocaleDateString("en-GB", { weekday: "short" }));
+  const X = i => 44 + i * 90, Y = v => 170 - v / mx * 150;
+  const grid = [0,.5,1].map(f => `<line x1="44" x2="584" y1="${Y(mx * f)}" y2="${Y(mx * f)}" stroke="var(--line)"/>`).join("");
+  const pts = ser.map((v, i) => `${X(i)},${Y(v)}`).join(" ");
+  return `<div class="card pad"><h2>Passenger volume: last 7 days (${S.route === "All" ? "all routes" : "Route " + S.route})</h2><svg viewBox="0 0 600 200" style="width:100%" role="img" aria-label="Line chart of daily passenger volume for the last 7 days">${grid}<polyline points="${pts}" fill="none" stroke="var(--ok)" stroke-width="3" stroke-linejoin="round"/>${ser.map((v, i) => `<circle cx="${X(i)}" cy="${Y(v)}" r="4" fill="var(--card)" stroke="var(--ok)" stroke-width="2"/><text x="${X(i)}" y="${Y(v) - 10}" text-anchor="middle" font-size="11" fill="var(--ink)">${v}</text><text x="${X(i)}" y="192" text-anchor="middle" font-size="11" fill="var(--mute)">${lab[i]}</text>`).join("")}</svg></div>`;
+}
+
+function analytics() {
+  const ser = HOURS.map((h, i) => Math.round((S.route === "All" ? DEMAND.A[i] + DEMAND.B[i] + DEMAND.C[i] : DEMAND[S.route][i]) * DF[S.date])), mx = Math.max(...ser);
+  const pk = h => h >= 8 && h < 10;
+  const bars = ser.map((v, i) => `<div><div class="xs">${v}</div><i style="height:${v / mx * 100}%;background:${pk(HOURS[i]) ? "var(--warn)" : "var(--ok)"};opacity:${pk(HOURS[i]) ? 1 : .55}"></i><div class="xs mute" style="margin-top:4px">${HOURS[i]}${HOURS[i] < 12 ? " AM" : " PM"}</div></div>`).join("");
+  const heat = STOPS.map(([n, w]) => `<div class="hrow"><b>${n}</b>${ser.map(v => { const k = v / mx * w; return `<span style="background:color-mix(in srgb,var(--bad) ${Math.round(k * 90)}%,var(--card))">${k > .66 ? "High" : k > .33 ? "Med" : "Low"}</span>`; }).join("")}</div>`).join("");
+  return `<div class="stack"><div class="row">${seg("date", S.date, Object.keys(DF), "Date")}${seg("route", S.route, ["All","A","B","C"], "Route")}<label class="card check"><input type="checkbox" data-k="auto" ${S.auto ? "checked" : ""}>Dynamic route optimization</label><button class="btn pri" data-act="export">Export Analytics Report</button></div>
+  ${S.auto ? suggBox() : ""}
+  <div class="card pad"><div class="row between"><h2>Peak hour demand (passengers/hour)</h2><span class="badge" style="--c:var(--warn)">Peak 8 to 10 AM</span></div><div class="chart">${bars}</div></div>
+  <div class="card pad heat"><h2>Congestion heatmap by stop</h2><div>${heat}</div></div>
+  ${volumeChart()}</div>`;
+}
+
+function routesPg() {
+  const d = S.draft, n = S.buses.filter(b => b.r === d.route).length, idx = HOURS.indexOf(parseInt(d.start)), dem = idx >= 0 ? DEMAND[d.route][idx] : 0, after = (n + d.extra) * CAP;
+  const steps = ["1 Edit Route", "2 Review Changes", "3 Published"].map((l, i) => `<span class="badge" style="--c:${i === S.step ? "var(--ok)" : "var(--mute)"}">${l}</span>`).join(" ");
+  let body = "";
+  if (S.step === 0) body = `<div><div class="mute sm">Route</div>${seg("droute", d.route, ["A","B","C"], "Route")}</div>
+    <div class="row" style="align-items:flex-end;gap:16px"><label class="sm">From<input type="time" data-k="start" value="${d.start}"></label><label class="sm">To<input type="time" data-k="end" value="${d.end}"></label>
+    <div><div class="mute sm">Assign Bus (extra buses)</div><span class="num"><button class="btn" data-act="extra" data-d="-1" aria-label="Decrease extra buses">-</button><b>${d.extra}</b><button class="btn" data-act="extra" data-d="1" aria-label="Increase extra buses">+</button></span></div></div>
+    <button class="btn pri" data-act="step" data-v="1">Review Changes</button>`;
+  if (S.step === 1) body = `<b>Add ${d.extra} bus to Route ${d.route}, ${d.start} to ${d.end}</b><div class="sm">Forecast demand at ${d.start}: <b>${dem}</b><br>Seat capacity: <b>${n * CAP}</b> to <b>${after}</b></div>
+    <p class="sm" style="color:${after >= dem ? "var(--ok)" : "var(--warn)"}">${after >= dem ? "Capacity will cover the forecast." : "Still short of forecast. Consider adding another bus."}</p>
+    <div class="row"><button class="btn" data-act="step" data-v="0">Back</button><button class="btn pri" data-act="publish">Save and Publish</button></div>`;
+  if (S.step === 2) body = `<p style="color:var(--ok);font-weight:700">Published as version ${S.log.length}. Drivers and students see the new schedule.</p><button class="btn" data-act="step" data-v="0">Edit another route</button>`;
+  const log = S.log.length ? S.log.map(l => `<div class="sm" style="padding:8px 0;border-bottom:1px solid var(--line)"><b>v${l.v}</b> Route ${l.route}: +${l.extra} bus, ${l.start} to ${l.end} <span class="mute">(${l.at})</span></div>`).join("") : '<p class="mute sm">Nothing published yet.</p>';
+  return `<div class="routes-grid"><div class="stack">${autoToggle()}${S.auto ? suggBox() : ""}<div class="card pad stack"><div class="row">${steps}</div>${body}</div></div><div class="card pad"><h2>Published changes</h2>${log}</div></div>`;
+}
+
+function forecast() {
+  const aN = S.buses.filter(b => b.r === "A").length, need = 118, cap = aN * CAP;
+  const bar = (l, v, c) => `<div><div class="row between sm"><span>${l}</span><b>${v}</b></div><div class="bar" style="height:12px"><i style="width:${Math.min(100, v / 150 * 100)}%;background:${c}"></i></div></div>`;
+  return `<div class="stack" style="max-width:680px"><div class="card pad"><h2>AI demand forecast</h2><p class="mute sm">Forecast generated from historical booking and route-demand data.</p>
+  <button class="btn pri" style="margin-top:12px" data-act="gen" ${S.fc === "load" ? "disabled" : ""}>${S.fc === "load" ? "Analysing demand" : "Generate AI Route Recommendation"}</button></div>
+  ${S.fc === "done" ? `<div class="card pad stack"><div class="row"><span class="badge" style="--c:var(--warn)">High demand</span><b>Route A: high demand predicted 08:00 to 09:00 AM (+31% vs last week)</b></div>
+  ${bar("Predicted demand", need, "var(--warn)")}${bar(`Seat capacity (${aN} buses)`, cap, cap >= need ? "var(--ok)" : "var(--bad)")}
+  <p class="sm">${cap >= need ? "Capacity covers the forecast." : `Shortfall of ${need - cap} seats. Recommendation: assign one additional bus to Route A for 08:00 to 09:00 AM.`}</p>
+  ${cap >= need ? "" : '<div class="row"><button class="btn pri" data-act="apply" data-r="A" data-add="1">Apply Recommendation</button></div><p class="mute xs">Opens Route Management with Route A, 08:00 to 09:00, +1 bus pre-filled. Review, then Save and Publish.</p>'}</div>` : ""}</div>`;
+}
+
+function sos() {
+  const col = st => st === "Open" ? "var(--bad)" : st === "Acknowledged" ? "var(--warn)" : "var(--ok)";
+  return `<div class="stack" style="max-width:680px"><p class="mute sm">Drivers trigger alerts in the Driver App. The Admin acknowledges and dispatches.</p>
+  <div class="row"><button class="btn dng" data-act="sos" data-kind="Breakdown">Demo: incoming breakdown alert</button><button class="btn" data-act="sos" data-kind="Delay">Demo: incoming delay alert</button></div>
+  ${S.feed.map(f => `<div class="card pad row between"><div><b>Bus #${f.bus}: ${f.kind}</b><div class="mute sm">${f.driver} | Route ${f.route} | ${f.gps} | ${f.time}</div></div><div class="row"><span class="badge" style="--c:${col(f.st)}">${f.st}</span>${f.st === "Open" ? `<button class="btn" data-act="ack" data-id="${f.id}">Acknowledge</button>` : ""}${f.st !== "Dispatched" ? `<button class="btn pri" data-act="resolve" data-id="${f.id}">Dispatch</button>` : ""}</div></div>`).join("")}</div>`;
+}
+
+function bookings() {
+  const rows = BOOKINGS.filter(r => S.filter === "All" || r[5] === S.filter), c = p => p === "Paid" ? "var(--ok)" : p === "Pending" ? "var(--warn)" : "var(--bad)";
+  return `<div class="stack">${seg("filter", S.filter, ["All","Paid","Pending","Failed"], "Payment status")}
+  <div class="card pad scroll-x"><h2>Booking and payment history</h2><table class="table"><thead><tr>${["Student ID","Route","Bus","Booking time","Payment method","Status"].map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.slice(0, 5).map(x => `<td>${x}</td>`).join("")}<td><span class="badge" style="--c:${c(r[5])}">${r[5]}</span></td></tr>`).join("")}</tbody></table></div>
+  <div class="card pad stack"><h2>Payment links</h2>${S.links.map(([id, m, on], i) => `<div class="row between sm"><span>${id} | ${m} | <b style="color:${on ? "var(--ok)" : "var(--mute)"}">${on ? "Attached" : "Detached"}</b></span><button class="btn" data-act="link" data-i="${i}">${on ? "Detach" : "Attach"}</button></div>`).join("")}</div></div>`;
+}
+
+const settings = () => `<div class="stack" style="max-width:420px"><label class="card check" style="justify-content:space-between">Dark mode<input type="checkbox" data-k="dark" ${S.dark ? "checked" : ""}></label><label class="card check" style="justify-content:space-between">Audible SOS alerts<input type="checkbox" data-k="sound" ${S.sound ? "checked" : ""}></label></div>`;
+const PAGES = { fleet, an: analytics, rt: routesPg, ai: forecast, sos, bk: bookings, set: settings };
+
+function rail() {
+  const ser = HOURS.map((h, i) => DEMAND.A[i] + DEMAND.B[i] + DEMAND.C[i]), mx = Math.max(...ser), last = S.feed[0], g = suggest();
+  return `<div class="card pad"><b class="sm">Route optimizer</b><p class="sm" style="color:${S.auto ? "var(--ok)" : "var(--mute)"}">${S.auto ? `${g.length} suggestion${g.length === 1 ? "" : "s"} from live heatmap` : "Off"}</p><button class="btn" style="margin-top:8px" data-act="nav" data-v="rt">Open Route Management</button></div>
+  <div class="card pad"><b class="sm">Today's demand</b><div style="display:flex;align-items:flex-end;gap:4px;height:64px;margin-top:8px">${ser.map((v, i) => { const p = HOURS[i] >= 8 && HOURS[i] < 10; return `<i style="flex:1;border-radius:3px 3px 0 0;height:${v / mx * 100}%;background:${p ? "var(--warn)" : "var(--ok)"};opacity:${p ? 1 : .5}"></i>`; }).join("")}</div><div class="mute xs">6 AM to 12 PM, peak 8 to 10 AM</div></div>
+  <div class="card pad"><b class="sm">Latest SOS</b><div class="sm">${last ? `Bus #${last.bus}: ${last.kind} (${last.st})` : "None"}</div><div class="mute xs">${openCount()} open</div></div>`;
+}
+
+function modalHtml() {
+  const m = S.modal;
+  return `<div class="overlay" role="alertdialog" aria-modal="true"><div class="card dialog"><div class="pulse" style="color:var(--bad);display:flex;justify-content:center">${ic("warn", 44)}</div><h2 style="font-size:20px;font-weight:800;margin-top:8px">Incoming Alert: Bus #${m.bus}</h2><p class="mute">${m.kind} reported by ${m.driver} at ${m.time}.<br>Route ${m.route} | GPS ${m.gps}</p><div class="row" style="justify-content:center;margin-top:16px"><button class="btn dng" data-act="resolve" data-id="${m.id}">Dispatch replacement</button><button class="btn" data-act="ack" data-id="${m.id}">Acknowledge</button></div></div></div>`;
+}
+
+function render() {
+  $("side").className = "side card" + (S.col ? " collapsed" : "");
+  $("side").innerHTML = `<button class="nav" data-act="col" aria-label="Toggle sidebar">${ic("menu")}${S.col ? "" : "<b>Shuttle Ops</b>"}</button>` +
+    NAV.map(([k, i, l]) => `<button class="nav ${S.page === k ? "on" : ""}" data-act="nav" data-v="${k}" title="${l}" ${S.page === k ? 'aria-current="page"' : ""}>${ic(i)}${S.col ? "" : l}${k === "sos" && openCount() > 0 ? '<span class="dot pulse"></span>' : ""}</button>`).join("");
+  $("title").textContent = NAV.find(n => n[0] === S.page)[2];
+  $("page").innerHTML = PAGES[S.page]();
+  $("rail").innerHTML = rail();
+  $("modal").innerHTML = S.modal ? modalHtml() : "";
+}
+
+/* ---------- Actions ---------- */
+const addBuses = (r, k) => { for (let i = 0; i < k; i++) S.buses.push(mk(String(S.buses.length + 1).padStart(2, "0"), r, 0, 0, 0)); };
+const item = id => S.feed.find(f => f.id === Number(id));
+const A = {
+  nav: d => { S.page = d.v; },
+  col: () => { S.col = !S.col; },
+  theme: () => { S.dark = !S.dark; theme(); },
+  seg: d => { if (d.k === "droute") S.draft.route = d.v; else S[d.k] = d.v; },
+  apply: d => { S.draft = { route: d.r, start: "08:00", end: "09:00", extra: Number(d.add) }; S.step = 0; S.page = "rt"; },
+  extra: d => { S.draft.extra = Math.max(1, Math.min(4, S.draft.extra + Number(d.d))); },
+  step: d => { S.step = Number(d.v); },
+  publish: () => { addBuses(S.draft.route, S.draft.extra); S.log.unshift({ ...S.draft, v: S.log.length + 1, at: new Date().toTimeString().slice(0, 5) }); S.step = 2; say(`Published: +${S.draft.extra} bus on Route ${S.draft.route}, ${S.draft.start} to ${S.draft.end}`); },
+  export: () => {
+    const rs = S.route === "All" ? ["A","B","C"] : [S.route];
+    const csv = ["Route,Time,Demand"].concat(rs.flatMap(r => HOURS.map((h, i) => `${r},${String(h).padStart(2, "0")}:00,${Math.round(DEMAND[r][i] * DF[S.date])}`))).join("\n");
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = `analytics-${S.route}-${S.date.replace(/\s/g, "")}.csv`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    say(`Report exported (${rs.length * HOURS.length} rows, ${S.date})`);
+  },
+  gen: () => { S.fc = "load"; setTimeout(() => { S.fc = "done"; render(); }, 1200); },
+  sos: d => {
+    const pool = S.buses.filter(b => !b.sos), b = pool[Math.floor(Math.random() * pool.length)];
+    const it = { id: Date.now(), bus: b.id, kind: d.kind, route: b.r, driver: DRIVER(b.id), gps: coords(b).join(", "), time: new Date().toTimeString().slice(0, 5), st: "Open" };
+    S.feed.unshift(it); if (d.kind === "Breakdown") b.sos = true; else b.delay = 8;
+    S.modal = it; say(`SOS from Bus #${b.id}: ${d.kind}`, "var(--bad)"); if (S.sound) beep();
+  },
+  ack: d => { item(d.id).st = "Acknowledged"; S.modal = null; say("Alert acknowledged"); },
+  resolve: d => { const f = item(d.id); f.st = "Dispatched"; const b = S.buses.find(x => x.id === f.bus); b.sos = false; b.delay = 0; S.modal = null; say(`Replacement dispatched for Bus #${f.bus}`); },
+  link: d => { S.links[d.i][2] = !S.links[d.i][2]; },
+};
+document.addEventListener("click", e => { const t = e.target.closest("[data-act]"); if (!t) return; A[t.dataset.act](t.dataset); render(); });
+document.addEventListener("change", e => {
+  const t = e.target, k = t.dataset.k; if (!k) return;
+  if (k === "auto") { S.auto = t.checked; render(); } else if (k === "sound") S.sound = t.checked;
+  else if (k === "dark") { S.dark = t.checked; theme(); } else if (k === "start" || k === "end") S.draft[k] = t.value;
+});
+
+// Simulated real-time telemetry
+setInterval(() => {
+  S.buses.forEach(b => { if (!b.sos) { b.t = (b.t + .03) % 1; b.delay = Math.max(0, Math.min(9, b.delay + (Math.random() < .15 ? (Math.random() < .5 ? -1 : 1) : 0))); } b.load = Math.max(2, Math.min(CAP, b.load + Math.round(Math.random() * 4 - 2))); });
+  if (S.page === "fleet") render();
+}, 5000); // NFR-01: GPS refresh every 5 seconds
+
+theme(); render();
+
+</script>
+</body>
+</html>
